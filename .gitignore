@@ -1,0 +1,7 @@
+data/
+models/
+notebooks/.ipynb_checkpoints/*
+python/__pycache__/
+notebooks/tblogs*/
+notebooks/tb_*/
+notebooks/oldCNNtb/
