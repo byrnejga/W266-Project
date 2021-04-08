@@ -206,7 +206,7 @@ def run_model(embedding_matrix,
               logfile = None,
               logdir = "tb_dir/",
               logtag = "tblogs",
-              model_dir = "../models",
+              model_dir = "../models"
               ):
 
 
