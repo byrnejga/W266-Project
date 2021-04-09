@@ -13,7 +13,7 @@ from tensorflow import keras
 
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
-
+from os import path
 
 
 def load_data(filename, load_func=json.load):
@@ -53,13 +53,20 @@ def tokenize_sentences(x_train, x_val, x_test, max_len=100):
     # create vocabulary from all the words in x_train
     t.fit_on_texts(x_train)
 
+    # save the tokenizer as a json file for performance tests
+    if not path.isfile('./tokenizer.json'):
+        js = t.to_json()
+        with open('tokenizer.json', 'w', encoding='utf-8') as f:
+            f.write(json.dumps(js, ensure_ascii=False))
+
+
     return( pad_sequences(t.texts_to_sequences(x_train), max_len, padding='post', truncating = 'post'),
             pad_sequences(t.texts_to_sequences(x_val), max_len, padding='post', truncating = 'post'),
             pad_sequences(t.texts_to_sequences(x_test), max_len, padding='post', truncating = 'post'),
             t )
 
 
-def embed_matrix(t, embed_dim, embed_loc = "/mnt/export/NLPData", embed_file = "glove.6B.50d.txt"):
+def embed_matrix(t, embed_dim = 50, embed_loc = "/mnt/export/NLPData", embed_file = "glove.6B.50d.txt"):
 
     """
     Creates a vocabulary list and corresponding embedding matrix such that 
