@@ -217,8 +217,8 @@ def run_model(embedding_matrix,
 
     callbacks = [ keras.callbacks.TensorBoard(log_dir=tblog_dir, histogram_freq=1), 
                   keras.callbacks.ModelCheckpoint(filepath=model_dir + "/" + tag,
-                                             monitor='val_loss',
-                                             mode='min',
+                                             monitor='val_accuracy',
+                                             mode='max',
                                              save_best_only=True) ]
 
 
