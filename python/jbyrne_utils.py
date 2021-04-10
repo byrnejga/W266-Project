@@ -1,12 +1,11 @@
-
 ## Usual Imports
 import numpy as np
-# import matplotlib.pyplot as plt
-# import re
 import json
 import datetime
 import string
 import gc
+import collections
+import pickle
 
 import tensorflow as tf
 from tensorflow import keras
@@ -37,33 +36,42 @@ def load_data(filename, load_func=json.load):
     return d
 
 
+def tokenize_sentences( sentences , max_len=100):
 
-def tokenize_sentences(x_train, x_val, x_test, max_len=100):
+    """
+    Defaults of the tokenizer:
+    set to lower case and split on spaces.
+    No restriction on length of vocabulary
+    
+    Overriding the default filters with string.punctuation
+    as the default does not strip apostrophies which is
+    expected in the GloVe tokenizer.
 
-    # Defaults of the tokenizer:
-    # set to lower case and split on spaces.
-    # No restriction on length of vocabulary
-    #
-    # Overriding the default filters with string.punctuation
-    # as the default does not strip apostrophies which is
-    # expected in the GloVe tokenizer.
+    check if tokenizer has already been saved. If so, load
+    that and use it, otherwise create it, build it on the
+    passed collection of texts and save.
+    """
 
-    t = keras.preprocessing.text.Tokenizer(filters=string.punctuation)
-
-    # create vocabulary from all the words in x_train
-    t.fit_on_texts(x_train)
-
-    # save the tokenizer as a json file for performance tests
     if not path.isfile('./tokenizer.json'):
+        print("Creating new Tokenizer")
+        t = keras.preprocessing.text.Tokenizer(filters=string.punctuation)
+
+        # create vocabulary from all the words in x_train
+        t.fit_on_texts(sentences)
+
+        # save the tokenizer as a json file for performance tests
         js = t.to_json()
         with open('tokenizer.json', 'w', encoding='utf-8') as f:
             f.write(json.dumps(js, ensure_ascii=False))
+        
+    else:
+        print("Loading previously created Tokenizer")
+        with open('./tokenizer.json') as f:
+            js = json.load(f)
+            t = keras.preprocessing.text.tokenizer_from_json(js)
 
 
-    return( pad_sequences(t.texts_to_sequences(x_train), max_len, padding='post', truncating = 'post'),
-            pad_sequences(t.texts_to_sequences(x_val), max_len, padding='post', truncating = 'post'),
-            pad_sequences(t.texts_to_sequences(x_test), max_len, padding='post', truncating = 'post'),
-            t )
+    return( pad_sequences(t.texts_to_sequences(sentences), max_len, padding='post', truncating = 'post'), t )
 
 
 def embed_matrix(t, embed_dim = 50, embed_loc = "/mnt/export/NLPData", embed_file = "glove.6B.50d.txt"):
@@ -75,20 +83,42 @@ def embed_matrix(t, embed_dim = 50, embed_loc = "/mnt/export/NLPData", embed_fil
     each word in the sentence.
 
     t is the tokenizer that has already been fit to the texts in the training data
+
+    To ensure all models use the same embeddings, on creation, the vocab_list and
+    embedding_matrix will be loaded from a previously saved run, if on exists.
     """
 
     vocab_list = list(t.word_index.keys())
     vocab_size = len(vocab_list) + 1  # to allow for the Zero unknown token.
+
     embedding_matrix = np.zeros( (vocab_size, embed_dim) )
 
-    with open(embed_loc + "/" + embed_file, "r", encoding="utf-8") as f:
-        for line in f:
-            values = line.split()
-            word = values[0]
+    # if the embedding matrix has already been created and saved, load it,
+    # otherwise process it and save for future runs
+    if not path.isfile('./embed_matrix.pkl'):
+        print("Creating new Embedding Matrix")
 
-            if word in vocab_list:
-                embedding_matrix[vocab_list.index(word)] = np.asarray(values[1:], "float32")   
-            
+        with open(embed_loc + "/" + embed_file, "r", encoding="utf-8") as f:
+            for line in f:
+                values = line.split()
+                word = values[0]
+
+                if word in vocab_list:
+                    embedding_matrix[vocab_list.index(word)] = np.asarray(values[1:], "float32")   
+
+        print("Saved new Embedding Matrix to embedding_matrix.pkl")
+        
+        # Save the newly created Embedding Matrix
+        with open('./embed_matrix.pkl', "wb") as f2:
+            pickle.dump( embedding_matrix, f2 )
+
+    else:
+        print("Loading previously created Embedding Matrix")
+        with open('./embed_matrix.pkl', "rb") as f3:
+
+            embedding_matrix = pickle.load(f3)
+
+
     return(vocab_list, embedding_matrix, vocab_size)      
 
 
@@ -216,7 +246,12 @@ def run_model(embedding_matrix,
               model_dir = "../models"
               ):
 
-
+    """
+    Create and Train a model based on the passed parameters.
+    The log of the execution results, and the folder where
+    the best models from each run are stored are based
+    on a current timestamp to ensure each is unique.
+    """
     
     tag  = datetime.datetime.now().strftime("%y%m%d-%H%M%S")
     tblog_dir = f"{logtag}-{kernel_sizes}/".replace("[","").replace("]","").replace(", ","") + \
@@ -250,8 +285,6 @@ def run_model(embedding_matrix,
                        callbacks = callbacks)
 
     if logfile is not None:
-
-
         with open(logfile, 'a') as f:
             f.write(f"{tag}|{max_len}|{epochs}|{batch_size}|{embed_dim}|{num_filters}|{kernel_sizes}|{dense_layer_dims}|{dropout_rate}|")
             for metric in list(hist.keys()):
@@ -260,7 +293,6 @@ def run_model(embedding_matrix,
                 for i in range(0,epochs):
                     f.write(f"{hist[metric][i]}|")
             f.write(f"END\n")        
-            f.close()
 
     # Destroy the model to free up GPU memory for the next run
 
