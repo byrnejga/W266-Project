@@ -5,3 +5,4 @@ python/__pycache__/
 notebooks/tblogs*/
 notebooks/tb_*/
 notebooks/oldCNNtb/
+*.swp
