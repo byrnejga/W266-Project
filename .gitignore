@@ -6,3 +6,4 @@ notebooks/tblogs*/
 notebooks/tb_*/
 notebooks/oldCNNtb/
 *.swp
+.~lock*
